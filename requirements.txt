@@ -2,3 +2,4 @@ plotly
 scikit-learn
 xgboost
 tensorflow
+matplotlib
