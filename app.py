@@ -385,33 +385,59 @@ def plot_performance_metrics(metrics, model_type):
                 f'{metric_values[i]:.3f}', ha='center', va='bottom', fontweight='bold')
     
     # Confusion Matrix
-    cm = st.session_state.cm
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax2,
-                xticklabels=['No Loan', 'Loan'],
-                yticklabels=['No Loan', 'Loan'])
-    ax2.set_title('Confusion Matrix', fontsize=14, fontweight='bold')
-    ax2.set_ylabel('Actual')
-    ax2.set_xlabel('Predicted')
+    try:
+        cm = st.session_state.get('cm', [[0, 0], [0, 0]])
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax2,
+                    xticklabels=['No Loan', 'Loan'],
+                    yticklabels=['No Loan', 'Loan'])
+        ax2.set_title('Confusion Matrix', fontsize=14, fontweight='bold')
+        ax2.set_ylabel('Actual')
+        ax2.set_xlabel('Predicted')
+    except Exception:
+        ax2.text(0.5, 0.5, 'Confusion Matrix\nNot Available', ha='center', va='center', transform=ax2.transAxes)
+        ax2.set_title('Confusion Matrix', fontsize=14, fontweight='bold')
     
     # ROC Curve
-    fpr, tpr, _ = roc_curve(st.session_state.y_test, st.session_state.y_pred_proba)
-    ax3.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {metrics["auc"]:.4f})')
-    ax3.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    ax3.set_xlim([0.0, 1.0])
-    ax3.set_ylim([0.0, 1.05])
-    ax3.set_xlabel('False Positive Rate')
-    ax3.set_ylabel('True Positive Rate')
-    ax3.set_title('ROC Curve', fontsize=14, fontweight='bold')
-    ax3.legend(loc="lower right")
-    ax3.grid(True, alpha=0.3)
+    try:
+        y_test = st.session_state.get('y_test', [])
+        y_pred_proba = st.session_state.get('y_pred_proba', [])
+        
+        if len(y_test) > 0 and len(y_pred_proba) > 0:
+            fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+            ax3.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {metrics["auc"]:.4f})')
+            ax3.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            ax3.set_xlim([0.0, 1.0])
+            ax3.set_ylim([0.0, 1.05])
+            ax3.set_xlabel('False Positive Rate')
+            ax3.set_ylabel('True Positive Rate')
+            ax3.set_title('ROC Curve', fontsize=14, fontweight='bold')
+            ax3.legend(loc="lower right")
+            ax3.grid(True, alpha=0.3)
+        else:
+            ax3.text(0.5, 0.5, 'ROC Curve\nNot Available', ha='center', va='center', transform=ax3.transAxes)
+            ax3.set_title('ROC Curve', fontsize=14, fontweight='bold')
+    except Exception:
+        ax3.text(0.5, 0.5, 'ROC Curve\nNot Available', ha='center', va='center', transform=ax3.transAxes)
+        ax3.set_title('ROC Curve', fontsize=14, fontweight='bold')
     
     # Precision-Recall Curve
-    precision_vals, recall_vals, _ = precision_recall_curve(st.session_state.y_test, st.session_state.y_pred_proba)
-    ax4.plot(recall_vals, precision_vals, color='blue', lw=2)
-    ax4.set_xlabel('Recall')
-    ax4.set_ylabel('Precision')
-    ax4.set_title('Precision-Recall Curve', fontsize=14, fontweight='bold')
-    ax4.grid(True, alpha=0.3)
+    try:
+        y_test = st.session_state.get('y_test', [])
+        y_pred_proba = st.session_state.get('y_pred_proba', [])
+        
+        if len(y_test) > 0 and len(y_pred_proba) > 0:
+            precision_vals, recall_vals, _ = precision_recall_curve(y_test, y_pred_proba)
+            ax4.plot(recall_vals, precision_vals, color='blue', lw=2)
+            ax4.set_xlabel('Recall')
+            ax4.set_ylabel('Precision')
+            ax4.set_title('Precision-Recall Curve', fontsize=14, fontweight='bold')
+            ax4.grid(True, alpha=0.3)
+        else:
+            ax4.text(0.5, 0.5, 'Precision-Recall Curve\nNot Available', ha='center', va='center', transform=ax4.transAxes)
+            ax4.set_title('Precision-Recall Curve', fontsize=14, fontweight='bold')
+    except Exception:
+        ax4.text(0.5, 0.5, 'Precision-Recall Curve\nNot Available', ha='center', va='center', transform=ax4.transAxes)
+        ax4.set_title('Precision-Recall Curve', fontsize=14, fontweight='bold')
     
     plt.tight_layout()
     return fig
@@ -634,10 +660,14 @@ if st.button(f"🚀 Train {model_choice} Model", type="primary"):
                 st.metric("Min Samples Split", model.min_samples_split)
                 st.metric("Min Samples Leaf", model.min_samples_leaf)
             with col3:
-                st.metric("Best CV Score", f"{additional_info.best_score_:.4f}")
+                try:
+                    best_score = additional_info.best_score_ if hasattr(additional_info, 'best_score_') else "N/A"
+                    st.metric("Best CV Score", f"{best_score:.4f}" if isinstance(best_score, float) else best_score)
+                except:
+                    st.metric("Best CV Score", "N/A")
                 st.metric("Class Weight", "Balanced")
         
-        elif model_choice == "XGBoost" and additional_info:
+        elif model_choice == "XGBoost" and additional_info and XGBOOST_AVAILABLE:
             st.subheader("🚀 XGBoost Model Configuration")
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -647,21 +677,59 @@ if st.button(f"🚀 Train {model_choice} Model", type="primary"):
                 st.metric("Learning Rate", f"{model.learning_rate:.3f}")
                 st.metric("Subsample", f"{model.subsample:.2f}")
             with col3:
-                st.metric("Best CV Score", f"{additional_info['grid_search'].best_score_:.4f}")
-                st.metric("Scale Pos Weight", f"{additional_info['scale_pos_weight']:.2f}")
+                try:
+                    grid_search = additional_info.get('grid_search') if isinstance(additional_info, dict) else additional_info
+                    best_score = grid_search.best_score_ if hasattr(grid_search, 'best_score_') else "N/A"
+                    st.metric("Best CV Score", f"{best_score:.4f}" if isinstance(best_score, float) else best_score)
+                except:
+                    st.metric("Best CV Score", "N/A")
+                try:
+                    scale_pos_weight = additional_info.get('scale_pos_weight', "N/A") if isinstance(additional_info, dict) else "N/A"
+                    st.metric("Scale Pos Weight", f"{scale_pos_weight:.2f}" if isinstance(scale_pos_weight, (int, float)) else scale_pos_weight)
+                except:
+                    st.metric("Scale Pos Weight", "N/A")
         
-        elif model_choice == "Deep Learning" and additional_info:
+        elif model_choice == "Deep Learning" and additional_info and TENSORFLOW_AVAILABLE:
             st.subheader("🧠 Neural Network Architecture")
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Architecture", f"{additional_info['architecture']}")
-                st.metric("Total Parameters", f"{model.count_params():,}")
+                try:
+                    architecture = additional_info.get('architecture', [])
+                    st.metric("Architecture", f"{architecture}")
+                    st.metric("Total Parameters", f"{model.count_params():,}")
+                except:
+                    st.metric("Architecture", "N/A")
+                    st.metric("Total Parameters", "N/A")
             with col2:
-                st.metric("Hidden Layers", len(additional_info['architecture']))
-                st.metric("Training Epochs", len(additional_info['history'].history['loss']))
+                try:
+                    architecture = additional_info.get('architecture', [])
+                    history = additional_info.get('history')
+                    st.metric("Hidden Layers", len(architecture) if architecture else "N/A")
+                    if history and hasattr(history, 'history') and 'loss' in history.history:
+                        st.metric("Training Epochs", len(history.history['loss']))
+                    else:
+                        st.metric("Training Epochs", "N/A")
+                except:
+                    st.metric("Hidden Layers", "N/A")
+                    st.metric("Training Epochs", "N/A")
             with col3:
-                st.metric("Final Train Loss", f"{additional_info['history'].history['loss'][-1]:.4f}")
-                st.metric("Final Val Loss", f"{additional_info['history'].history['val_loss'][-1]:.4f}")
+                try:
+                    history = additional_info.get('history')
+                    if history and hasattr(history, 'history'):
+                        if 'loss' in history.history and len(history.history['loss']) > 0:
+                            st.metric("Final Train Loss", f"{history.history['loss'][-1]:.4f}")
+                        else:
+                            st.metric("Final Train Loss", "N/A")
+                        if 'val_loss' in history.history and len(history.history['val_loss']) > 0:
+                            st.metric("Final Val Loss", f"{history.history['val_loss'][-1]:.4f}")
+                        else:
+                            st.metric("Final Val Loss", "N/A")
+                    else:
+                        st.metric("Final Train Loss", "N/A")
+                        st.metric("Final Val Loss", "N/A")
+                except:
+                    st.metric("Final Train Loss", "N/A")
+                    st.metric("Final Val Loss", "N/A")
         
         # Performance visualization
         st.header(f"📈 {model_choice} Performance Matrix")
@@ -682,62 +750,108 @@ if st.button(f"🚀 Train {model_choice} Model", type="primary"):
         st.markdown("---")
         st.header("🔄 Cross-Validation Results")
         
-        if model_choice == "Deep Learning":
+        if model_choice == "Deep Learning" and additional_info and 'history' in additional_info:
             # For Deep Learning, show validation results from training history
             st.info("Deep Learning models use built-in validation during training. Cross-validation results shown below:")
             
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                final_val_auc = additional_info['history'].history.get('val_auc', [metrics['auc']])[-1] if 'val_auc' in additional_info['history'].history else metrics['auc']
-                st.metric("Validation AUC", f"{final_val_auc:.4f}")
-            with col2:
-                val_loss_history = additional_info['history'].history['val_loss']
-                val_loss_std = np.std(val_loss_history[-10:])  # Stability of last 10 epochs
-                st.metric("Val Loss Std (last 10)", f"{val_loss_std:.4f}")
-            with col3:
-                stability = "Stable" if val_loss_std < 0.05 else "Moderate" if val_loss_std < 0.1 else "Unstable"
-                st.metric("Model Stability", stability)
-            
-            # Show training history plot
-            fig_history, ax = plt.subplots(1, 2, figsize=(12, 4))
-            
-            # Loss plot
-            ax[0].plot(additional_info['history'].history['loss'], label='Training Loss', color='blue')
-            ax[0].plot(additional_info['history'].history['val_loss'], label='Validation Loss', color='red')
-            ax[0].set_title('Training History - Loss')
-            ax[0].set_xlabel('Epoch')
-            ax[0].set_ylabel('Loss')
-            ax[0].legend()
-            ax[0].grid(True, alpha=0.3)
-            
-            # Accuracy plot
-            ax[1].plot(additional_info['history'].history['accuracy'], label='Training Accuracy', color='green')
-            ax[1].plot(additional_info['history'].history['val_accuracy'], label='Validation Accuracy', color='orange')
-            ax[1].set_title('Training History - Accuracy')
-            ax[1].set_xlabel('Epoch')
-            ax[1].set_ylabel('Accuracy')
-            ax[1].legend()
-            ax[1].grid(True, alpha=0.3)
-            
-            plt.tight_layout()
-            st.pyplot(fig_history)
+            try:
+                history = additional_info['history']
+                history_dict = history.history
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    # Try to get validation AUC, fallback to test AUC
+                    if 'val_auc' in history_dict and len(history_dict['val_auc']) > 0:
+                        final_val_auc = history_dict['val_auc'][-1]
+                    else:
+                        final_val_auc = metrics['auc']
+                    st.metric("Validation AUC", f"{final_val_auc:.4f}")
+                    
+                with col2:
+                    # Calculate validation loss stability
+                    if 'val_loss' in history_dict and len(history_dict['val_loss']) > 0:
+                        val_loss_history = history_dict['val_loss']
+                        val_loss_std = np.std(val_loss_history[-min(10, len(val_loss_history)):])
+                    else:
+                        val_loss_std = 0.0
+                    st.metric("Val Loss Std (last 10)", f"{val_loss_std:.4f}")
+                    
+                with col3:
+                    stability = "Stable" if val_loss_std < 0.05 else "Moderate" if val_loss_std < 0.1 else "Unstable"
+                    st.metric("Model Stability", stability)
+                
+                # Show training history plot if data is available
+                if 'loss' in history_dict and 'val_loss' in history_dict:
+                    fig_history, ax = plt.subplots(1, 2, figsize=(12, 4))
+                    
+                    # Loss plot
+                    ax[0].plot(history_dict['loss'], label='Training Loss', color='blue')
+                    ax[0].plot(history_dict['val_loss'], label='Validation Loss', color='red')
+                    ax[0].set_title('Training History - Loss')
+                    ax[0].set_xlabel('Epoch')
+                    ax[0].set_ylabel('Loss')
+                    ax[0].legend()
+                    ax[0].grid(True, alpha=0.3)
+                    
+                    # Accuracy plot
+                    if 'accuracy' in history_dict and 'val_accuracy' in history_dict:
+                        ax[1].plot(history_dict['accuracy'], label='Training Accuracy', color='green')
+                        ax[1].plot(history_dict['val_accuracy'], label='Validation Accuracy', color='orange')
+                        ax[1].set_title('Training History - Accuracy')
+                        ax[1].set_xlabel('Epoch')
+                        ax[1].set_ylabel('Accuracy')
+                        ax[1].legend()
+                        ax[1].grid(True, alpha=0.3)
+                    else:
+                        ax[1].text(0.5, 0.5, 'Accuracy history\nnot available', 
+                                  ha='center', va='center', transform=ax[1].transAxes)
+                        ax[1].set_title('Training History - Accuracy')
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_history)
+                    
+            except Exception as e:
+                st.warning(f"Could not display Deep Learning training history: {str(e)}")
+                # Fallback to basic metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Test AUC", f"{metrics['auc']:.4f}")
+                with col2:
+                    st.metric("Test Accuracy", f"{metrics['accuracy']:.4f}")
+                with col3:
+                    st.metric("Model Status", "Trained Successfully")
             
         else:
             # Traditional cross-validation for sklearn models
-            with st.spinner("Performing cross-validation..."):
-                if model_choice == "Logistic Regression":
-                    cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring='roc_auc')
-                else:
-                    cv_scores = cross_val_score(model, X_train_scaled if scaler else X_train, y_train, cv=5, scoring='roc_auc')
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Mean CV AUC", f"{cv_scores.mean():.4f}")
-            with col2:
-                st.metric("CV Std Dev", f"{cv_scores.std():.4f}")
-            with col3:
-                stability = "Stable" if cv_scores.std() < 0.05 else "Moderate" if cv_scores.std() < 0.1 else "Unstable"
-                st.metric("Model Stability", stability)
+            try:
+                with st.spinner("Performing cross-validation..."):
+                    if model_choice == "Logistic Regression" and scaler is not None:
+                        cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring='roc_auc')
+                    elif model_choice == "Logistic Regression":
+                        cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='roc_auc')
+                    else:
+                        # For Random Forest and XGBoost, use original features
+                        cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='roc_auc')
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Mean CV AUC", f"{cv_scores.mean():.4f}")
+                with col2:
+                    st.metric("CV Std Dev", f"{cv_scores.std():.4f}")
+                with col3:
+                    stability = "Stable" if cv_scores.std() < 0.05 else "Moderate" if cv_scores.std() < 0.1 else "Unstable"
+                    st.metric("Model Stability", stability)
+                    
+            except Exception as e:
+                st.warning(f"Cross-validation failed: {str(e)}")
+                # Fallback to test metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Test AUC", f"{metrics['auc']:.4f}")
+                with col2:
+                    st.metric("Test Accuracy", f"{metrics['accuracy']:.4f}")
+                with col3:
+                    st.metric("Model Status", "Trained Successfully")
         
         st.success(f"{model_choice} model training and evaluation completed successfully!")
 
@@ -880,119 +994,131 @@ if 'model_trained' in st.session_state and st.session_state.model_trained:
             prediction_df = prediction_df[st.session_state.features_to_use]
             
             # Make prediction based on model type
-            if st.session_state.model_type in ["Logistic Regression", "Deep Learning"] and st.session_state.scaler:
-                prediction_scaled = st.session_state.scaler.transform(prediction_df)
-                if st.session_state.model_type == "Deep Learning":
-                    prediction_proba = st.session_state.trained_model.predict(prediction_scaled, verbose=0)[0][0]
-                    prediction = 1 if prediction_proba > 0.5 else 0
-                    prediction_proba_array = [1-prediction_proba, prediction_proba]
-                else:  # Logistic Regression
-                    prediction = st.session_state.trained_model.predict(prediction_scaled)[0]
-                    prediction_proba_array = st.session_state.trained_model.predict_proba(prediction_scaled)[0]
-            else:  # Random Forest, XGBoost
-                prediction = st.session_state.trained_model.predict(prediction_df)[0]
-                prediction_proba_array = st.session_state.trained_model.predict_proba(prediction_df)[0]
-            
-            # Display results
-            st.markdown("---")
-            st.header(f"🎯 {st.session_state.model_type} Prediction Results")
-            
-            # Main prediction result
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                loan_probability = prediction_proba_array[1] * 100
-                if prediction == 1:
-                    st.success(f"**Prediction: LIKELY TO TAKE LOAN** ✅")
-                else:
-                    st.error(f"**Prediction: UNLIKELY TO TAKE LOAN** ❌")
-            
-            with col2:
-                st.metric(
-                    label="🎲 Loan Probability",
-                    value=f"{loan_probability:.2f}%",
-                    delta=f"Confidence: {max(prediction_proba_array)*100:.1f}%"
-                )
-            
-            with col3:
-                risk_level = "High" if loan_probability > 70 else "Medium" if loan_probability > 30 else "Low"
-                risk_color = "green" if risk_level == "High" else "orange" if risk_level == "Medium" else "red"
-                st.markdown(f"**Risk Level: <span style='color:{risk_color}'>{risk_level}</span>**", unsafe_allow_html=True)
-            
-            # Model-specific analysis
-            st.subheader(f"📊 {st.session_state.model_type} Analysis Details")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**Prediction Breakdown:**")
-                st.write(f"• No Loan: {prediction_proba_array[0]*100:.2f}%")
-                st.write(f"• Loan: {prediction_proba_array[1]*100:.2f}%")
+            try:
+                if st.session_state.model_type in ["Logistic Regression", "Deep Learning"] and st.session_state.scaler:
+                    prediction_scaled = st.session_state.scaler.transform(prediction_df)
+                    if st.session_state.model_type == "Deep Learning":
+                        prediction_proba = st.session_state.trained_model.predict(prediction_scaled, verbose=0)[0][0]
+                        prediction = 1 if prediction_proba > 0.5 else 0
+                        prediction_proba_array = [1-prediction_proba, prediction_proba]
+                    else:  # Logistic Regression
+                        prediction = st.session_state.trained_model.predict(prediction_scaled)[0]
+                        prediction_proba_array = st.session_state.trained_model.predict_proba(prediction_scaled)[0]
+                else:  # Random Forest, XGBoost
+                    prediction = st.session_state.trained_model.predict(prediction_df)[0]
+                    prediction_proba_array = st.session_state.trained_model.predict_proba(prediction_df)[0]
                 
-                # Risk assessment
-                st.write(f"**{st.session_state.model_type} Risk Assessment:**")
-                if loan_probability > 80:
-                    st.write("🔥 **Very High Probability** - Strong model consensus")
-                elif loan_probability > 60:
-                    st.write("📈 **High Probability** - Model indicates good potential")
-                elif loan_probability > 40:
-                    st.write("⚖️ **Moderate Probability** - Mixed signals from model")
-                elif loan_probability > 20:
-                    st.write("📉 **Low Probability** - Model shows weak potential")
-                else:
-                    st.write("❌ **Very Low Probability** - Strong negative indication")
-            
-            with col2:
-                # Feature impact analysis
-                st.write("**Key Factors Analysis:**")
+                # Display results
+                st.markdown("---")
+                st.header(f"🎯 {st.session_state.model_type} Prediction Results")
                 
-                # Get top 5 most important features
-                important_features = st.session_state.feature_importance.head(5)
+                # Main prediction result
+                col1, col2, col3 = st.columns(3)
                 
-                for _, row in important_features.iterrows():
-                    feature_name = row['feature']
+                with col1:
+                    loan_probability = prediction_proba_array[1] * 100
+                    if prediction == 1:
+                        st.success(f"**Prediction: LIKELY TO TAKE LOAN** ✅")
+                    else:
+                        st.error(f"**Prediction: UNLIKELY TO TAKE LOAN** ❌")
+                
+                with col2:
+                    st.metric(
+                        label="🎲 Loan Probability",
+                        value=f"{loan_probability:.2f}%",
+                        delta=f"Confidence: {max(prediction_proba_array)*100:.1f}%"
+                    )
+                
+                with col3:
+                    risk_level = "High" if loan_probability > 70 else "Medium" if loan_probability > 30 else "Low"
+                    risk_color = "green" if risk_level == "High" else "orange" if risk_level == "Medium" else "red"
+                    st.markdown(f"**Risk Level: <span style='color:{risk_color}'>{risk_level}</span>**", unsafe_allow_html=True)
+                
+                # Model-specific analysis
+                st.subheader(f"📊 {st.session_state.model_type} Analysis Details")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Prediction Breakdown:**")
+                    st.write(f"• No Loan: {prediction_proba_array[0]*100:.2f}%")
+                    st.write(f"• Loan: {prediction_proba_array[1]*100:.2f}%")
                     
-                    if feature_name in prediction_input:
-                        feature_value = prediction_input[feature_name]
-                        
-                        if st.session_state.model_type == "Logistic Regression":
-                            coeff = row.get('coefficient', 0)
-                            impact = "Positive" if coeff > 0 else "Negative"
-                            st.write(f"• **{feature_name}**: {feature_value} ({impact} impact)")
+                    # Risk assessment
+                    st.write(f"**{st.session_state.model_type} Risk Assessment:**")
+                    if loan_probability > 80:
+                        st.write("🔥 **Very High Probability** - Strong model consensus")
+                    elif loan_probability > 60:
+                        st.write("📈 **High Probability** - Model indicates good potential")
+                    elif loan_probability > 40:
+                        st.write("⚖️ **Moderate Probability** - Mixed signals from model")
+                    elif loan_probability > 20:
+                        st.write("📉 **Low Probability** - Model shows weak potential")
+                    else:
+                        st.write("❌ **Very Low Probability** - Strong negative indication")
+                
+                with col2:
+                    # Feature impact analysis
+                    st.write("**Key Factors Analysis:**")
+                    
+                    try:
+                        # Get top 5 most important features
+                        feature_importance = st.session_state.get('feature_importance')
+                        if feature_importance is not None and len(feature_importance) > 0:
+                            important_features = feature_importance.head(5)
+                            
+                            for _, row in important_features.iterrows():
+                                feature_name = row.get('feature', 'Unknown')
+                                
+                                if feature_name in prediction_input:
+                                    feature_value = prediction_input[feature_name]
+                                    
+                                    if st.session_state.model_type == "Logistic Regression":
+                                        coeff = row.get('coefficient', 0)
+                                        impact = "Positive" if coeff > 0 else "Negative"
+                                        st.write(f"• **{feature_name}**: {feature_value} ({impact} impact)")
+                                    else:
+                                        importance = row.get('importance', 0)
+                                        st.write(f"• **{feature_name}**: {feature_value} (Importance: {importance:.4f})")
                         else:
-                            importance = row.get('importance', 0)
-                            st.write(f"• **{feature_name}**: {feature_value} (Importance: {importance:.4f})")
-            
-            # Business recommendations
-            st.subheader("💼 Business Recommendations")
-            
-            if loan_probability > 70:
-                st.success(f"""
-                **High Priority Customer** 🎯
-                - **{st.session_state.model_type} indicates strong loan potential**
-                - Assign to senior relationship manager
-                - Offer personalized loan products with competitive rates
-                - Schedule immediate consultation
-                - High conversion probability based on ML analysis
-                """)
-            elif loan_probability > 40:
-                st.info(f"""
-                **Medium Priority Customer** 📧
-                - **{st.session_state.model_type} shows moderate potential**
-                - Include in targeted digital campaigns
-                - Monitor engagement metrics closely
-                - Consider bundled product offerings
-                - ML model suggests cautious optimism
-                """)
-            else:
-                st.warning(f"""
-                **Low Priority Customer** 📮
-                - **{st.session_state.model_type} indicates low potential**
-                - Focus on relationship building strategies
-                - Offer financial literacy programs
-                - Long-term cultivation approach
-                - ML model suggests patient development needed
-                """)
+                            st.write("Feature importance data not available")
+                    except Exception as e:
+                        st.write("Feature impact analysis not available")
+                
+                # Business recommendations
+                st.subheader("💼 Business Recommendations")
+                
+                if loan_probability > 70:
+                    st.success(f"""
+                    **High Priority Customer** 🎯
+                    - **{st.session_state.model_type} indicates strong loan potential**
+                    - Assign to senior relationship manager
+                    - Offer personalized loan products with competitive rates
+                    - Schedule immediate consultation
+                    - High conversion probability based on ML analysis
+                    """)
+                elif loan_probability > 40:
+                    st.info(f"""
+                    **Medium Priority Customer** 📧
+                    - **{st.session_state.model_type} shows moderate potential**
+                    - Include in targeted digital campaigns
+                    - Monitor engagement metrics closely
+                    - Consider bundled product offerings
+                    - ML model suggests cautious optimism
+                    """)
+                else:
+                    st.warning(f"""
+                    **Low Priority Customer** 📮
+                    - **{st.session_state.model_type} indicates low potential**
+                    - Focus on relationship building strategies
+                    - Offer financial literacy programs
+                    - Long-term cultivation approach
+                    - ML model suggests patient development needed
+                    """)
+                    
+            except Exception as e:
+                st.error(f"Prediction failed: {str(e)}")
+                st.info("Please check your input values and try again.")
 
 else:
     st.info("👆 Please upload a dataset and click 'Train Model' to begin the analysis.")
